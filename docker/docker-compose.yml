@@ -1,0 +1,30 @@
+services:
+  pockettts:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: openclaw-pockettts:${POCKETTTS_TAG:-local}
+    ports:
+      - "${POCKETTTS_BIND:-127.0.0.1}:${POCKETTTS_PORT:-8711}:8000"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    volumes:
+      - pockettts_hf_cache:/models/huggingface
+      - pockettts_xdg_cache:/models/.cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 180s
+
+volumes:
+  pockettts_hf_cache:
+  pockettts_xdg_cache:

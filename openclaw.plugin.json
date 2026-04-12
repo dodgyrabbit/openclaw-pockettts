@@ -1,0 +1,31 @@
+{
+  "id": "pockettts",
+  "name": "PocketTTS Speech",
+  "description": "Speech synthesis via a local PocketTTS server running in Docker",
+  "contracts": {
+    "speechProviders": ["pockettts"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "description": "PocketTTS server base URL"
+      },
+      "endpointPath": {
+        "type": "string",
+        "description": "PocketTTS synthesis endpoint path"
+      },
+      "timeoutMs": {
+        "type": "number",
+        "minimum": 1000,
+        "description": "Request timeout in milliseconds"
+      },
+      "defaultVoice": {
+        "type": "string",
+        "description": "Default voice name (alba, marius, javert, jean, fantine, cosette, eponine, azelma)"
+      }
+    }
+  }
+}
