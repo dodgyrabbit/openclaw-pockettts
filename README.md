@@ -177,6 +177,15 @@ curl -X POST http://127.0.0.1:8711/tts \
   --output /tmp/pockettts-test.wav
 ```
 
+or make it play directly to aplay (on Linux)
+
+```bash
+curl -X POST http://127.0.0.1:8711/tts \
+  -F 'text=Hello from PocketTTS HTTP sidecar' \
+  -F 'voice_url=azelma' \
+  | aplay
+```
+
 ## Acknowledgements
 
 - This plugin uses [Kyutai PocketTTS](https://github.com/kyutai-labs/pocket-tts).
