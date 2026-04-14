@@ -25,5 +25,13 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
-  }
+  },
+  "files": [
+    "index.ts",
+    "speech-provider.ts",
+    "openclaw.plugin.json",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ]
 }
