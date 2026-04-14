@@ -9,6 +9,15 @@ type PocketTtsConfig = {
   defaultVoice?: string;
 };
 
+function extractPocketTtsConfigFromGatewayConfig(cfg: unknown): Record<string, unknown> | undefined {
+  const root = asObject(cfg);
+  const messages = asObject(root.messages);
+  const tts = asObject(messages.tts);
+  const providers = asObject(tts.providers);
+  const resolved = asObject(providers.pockettts);
+  return Object.keys(resolved).length > 0 ? resolved : undefined;
+}
+
 function asObject(value: unknown): Record<string, unknown> {
   return value != null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
@@ -47,13 +56,13 @@ function normalizeVoice(voice: string | undefined): string | undefined {
   );
 }
 
-function parseConfig(providerConfig: Record<string, unknown>): PocketTtsConfig {
+function parseConfig(providerConfig: Record<string, unknown>, cfg?: unknown): PocketTtsConfig {
   const providers = asObject(providerConfig.providers);
+  const fromGatewayConfig = extractPocketTtsConfigFromGatewayConfig(cfg);
   const raw = asObject(
     providers.pockettts ??
-      providers["pockettts-http"] ??
       providerConfig.pockettts ??
-      providerConfig["pockettts-http"] ??
+      fromGatewayConfig ??
       providerConfig,
   );
 
@@ -106,7 +115,7 @@ export function buildPocketTtsSpeechProvider(): SpeechProviderPlugin {
     label: "PocketTTS",
     isConfigured: () => true,
     synthesize: async (req) => {
-      const config = parseConfig(req.providerConfig);
+      const config = parseConfig(req.providerConfig, req.cfg);
       const overrides = asObject(req.providerOverrides);
 
       const voiceOverride = normalizeVoice(
