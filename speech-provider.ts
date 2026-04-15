@@ -1,12 +1,11 @@
 import type { SpeechProviderPlugin } from "openclaw/plugin-sdk/speech";
 
-const PREDEFINED_VOICES = ["alba", "marius", "javert", "jean", "fantine", "cosette", "eponine", "azelma"] as const;
-
 type PocketTtsConfig = {
   baseUrl: string;
   endpointPath: string;
   timeoutMs: number;
   defaultVoice?: string;
+  responseFormat: "wav" | "pcm";
 };
 
 function extractPocketTtsConfigFromGatewayConfig(cfg: unknown): Record<string, unknown> | undefined {
@@ -36,24 +35,17 @@ function trimTrailingSlash(input: string): string {
 
 function normalizeEndpointPath(pathValue: string): string {
   const trimmed = pathValue.trim();
-  if (!trimmed) return "/tts";
+  if (!trimmed) return "/v1/audio/speech";
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
 function normalizeVoice(voice: string | undefined): string | undefined {
   if (!voice) return undefined;
+  return voice.trim() || undefined;
+}
 
-  if (PREDEFINED_VOICES.includes(voice as (typeof PREDEFINED_VOICES)[number])) {
-    return voice;
-  }
-
-  if (voice.startsWith("http://") || voice.startsWith("https://") || voice.startsWith("hf://")) {
-    return voice;
-  }
-
-  throw new Error(
-    `Invalid voice '${voice}'. Use one of ${PREDEFINED_VOICES.join(", ")} or a URL (http://, https://, hf://).`,
-  );
+function normalizeResponseFormat(format: string | undefined): "wav" | "pcm" {
+  return format === "pcm" ? "pcm" : "wav";
 }
 
 function parseConfig(providerConfig: Record<string, unknown>, cfg?: unknown): PocketTtsConfig {
@@ -67,11 +59,12 @@ function parseConfig(providerConfig: Record<string, unknown>, cfg?: unknown): Po
   );
 
   const baseUrl = trimTrailingSlash(asString(raw.baseUrl) ?? "http://127.0.0.1:8711");
-  const endpointPath = normalizeEndpointPath(asString(raw.endpointPath) ?? "/tts");
+  const endpointPath = normalizeEndpointPath(asString(raw.endpointPath) ?? "/v1/audio/speech");
   const timeoutMs = asFiniteNumber(raw.timeoutMs) ?? 180_000;
   const defaultVoice = normalizeVoice(asString(raw.defaultVoice) ?? asString(raw.defaultVoiceUrl) ?? "alba");
+  const responseFormat = normalizeResponseFormat(asString(raw.responseFormat));
 
-  return { baseUrl, endpointPath, timeoutMs, defaultVoice };
+  return { baseUrl, endpointPath, timeoutMs, defaultVoice, responseFormat };
 }
 
 async function synthesizeViaHttp(opts: {
@@ -79,21 +72,25 @@ async function synthesizeViaHttp(opts: {
   text: string;
   timeoutMs: number;
   voice?: string;
+  responseFormat: "wav" | "pcm";
 }): Promise<Buffer> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), opts.timeoutMs);
 
   try {
-    const form = new FormData();
-    form.set("text", opts.text);
-
-    if (opts.voice) {
-      form.set("voice_url", opts.voice);
-    }
-
     const response = await fetch(opts.url, {
       method: "POST",
-      body: form,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts", // ignored by backend; required by OpenAI-compatible payload shape
+        input: opts.text,
+        voice: opts.voice,
+        response_format: opts.responseFormat,
+        speed: 1,
+        stream_format: "audio",
+      }),
       signal: controller.signal,
     });
 
@@ -135,12 +132,13 @@ export function buildPocketTtsSpeechProvider(): SpeechProviderPlugin {
           text: req.text,
           timeoutMs: req.timeoutMs ?? config.timeoutMs,
           voice,
+          responseFormat: config.responseFormat,
         });
 
         return {
           audioBuffer,
-          outputFormat: "wav",
-          fileExtension: ".wav",
+          outputFormat: config.responseFormat,
+          fileExtension: config.responseFormat === "pcm" ? ".pcm" : ".wav",
           voiceCompatible: false,
         };
       } catch (error) {

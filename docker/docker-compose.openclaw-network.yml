@@ -1,8 +1,8 @@
 services:
   pockettts:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     image: openclaw-pockettts:${POCKETTTS_TAG:-local}
     restart: unless-stopped
     read_only: true
@@ -16,6 +16,7 @@ services:
     volumes:
       - pockettts_hf_cache:/models/huggingface
       - pockettts_xdg_cache:/models/.cache
+      - pockettts_voices:/models/voices
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
       interval: 30s
@@ -35,3 +36,4 @@ networks:
 volumes:
   pockettts_hf_cache:
   pockettts_xdg_cache:
+  pockettts_voices:

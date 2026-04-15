@@ -1,27 +1,66 @@
-# PocketTTS Speech Plugin for OpenClaw
+# PocketTTS for OpenClaw (OpenAI-compatible local TTS)
 
-When running OpenClaw on your local machine, you may want fast TTS that does not consume additional GPU RAM. This PocketTTS setup uses small models (roughly ~250MB) and runs fully on CPU.
+This project runs PocketTTS in Docker and exposes an **OpenAI-compatible** speech endpoint:
 
-This plugin connects OpenClaw to a local PocketTTS server (typically run in Docker).
+- `POST /v1/audio/speech`
+- `GET /health`
+- `GET /` (simple built-in demo UI)
 
-## Why this exists
+The server is CPU-only and intended as a local sidecar for OpenClaw.
 
-- Local/offline-friendly TTS path
-- CPU-only runtime (no extra GPU VRAM pressure)
-- Low-friction development and testing with a sidecar container
+---
+
+## Current direction (important)
+
+This repository still includes an OpenClaw plugin, but the container now speaks an OpenAI-style TTS API directly.
+
+Because of that, we may **deprecate the plugin** in favor of using OpenClaw's standard OpenAI TTS configuration directly (simpler and more portable).
+
+---
+
+## What changed vs the old setup
+
+Previously, PocketTTS used a form-based `/tts` endpoint (`text` + `voice_url`).
+
+Now the main container serves an OpenAI-compatible endpoint with JSON payloads:
+
+```json
+{
+  "model": "tts-1",
+  "input": "Hello world",
+  "voice": "alba",
+  "response_format": "wav"
+}
+```
+
+### Supported subset
+
+- `model`: accepted, ignored
+- `input`: required
+- `voice`: voice clone file name lookup (`name` or `name.wav`)
+  - fallback to `alba` if missing
+- `response_format`: `wav` or `pcm`
+- `speed`: accepted, ignored
+- `stream_format`: accepted, ignored (defaults to audio)
+
+Responses are streamed with chunked transfer encoding.
+
+---
 
 ## Prerequisites
 
 - Docker Desktop (or Docker Engine + Compose plugin)
-- OpenClaw CLI installed
+- OpenClaw CLI (if using plugin path)
+
+---
 
 ## Deployment modes
 
-You have 3 good connection patterns:
+You can run in three common patterns:
 
 1. **Host OpenClaw (safe default):** publish to `127.0.0.1`
-2. **Docker OpenClaw via host:** publish to `0.0.0.0`, connect using `host.docker.internal`
-3. **Docker-to-Docker network:** attach PocketTTS to OpenClaw's Docker network and use `http://pockettts:8000`
+2. **Docker OpenClaw via host:** publish to `0.0.0.0`, connect via `host.docker.internal`
+3. **Docker-to-Docker network:** attach to OpenClaw network and use `http://pockettts:8000`
 
 ---
 
@@ -34,7 +73,7 @@ cp .env.example .env   # optional
 docker compose up -d --build
 ```
 
-OpenClaw provider URL:
+Provider URL:
 
 - `http://127.0.0.1:8711`
 
@@ -47,25 +86,23 @@ cd docker
 POCKETTTS_BIND=0.0.0.0 POCKETTTS_PORT=8711 docker compose up -d --build
 ```
 
-OpenClaw container provider URL:
+Provider URL from OpenClaw container:
 
 - `http://host.docker.internal:8711`
 
-> Linux note: if `host.docker.internal` is unavailable in your Docker setup, add host-gateway mapping in the OpenClaw container config.
+> Linux note: if `host.docker.internal` is unavailable in your Docker setup, add host-gateway mapping in OpenClaw container config.
 
 ---
 
-## Mode 3: Same Docker network as OpenClaw (recommended for Docker OpenClaw)
+## Mode 3: Same Docker network as OpenClaw
 
-This lets you keep PocketTTS in a separate compose project while still joining OpenClaw's network.
-
-1) Find OpenClaw network (example: `openclaw_default`):
+1) Find OpenClaw network (for example `openclaw_default`):
 
 ```bash
 docker network ls
 ```
 
-2) Start PocketTTS with the network override:
+2) Start with network override:
 
 ```bash
 cd docker
@@ -74,11 +111,9 @@ OPENCLAW_NETWORK=openclaw_default docker compose \
   up -d --build
 ```
 
-OpenClaw container provider URL:
+Provider URL from OpenClaw container:
 
 - `http://pockettts:8000`
-
-In this mode, no host port publish is required.
 
 ---
 
@@ -88,28 +123,84 @@ In this mode, no host port publish is required.
 curl -fsS http://127.0.0.1:8711/health
 ```
 
-## Install and enable the plugin
+---
 
-From this project root:
+## Quick API test (OpenAI-compatible)
+
+```bash
+curl -X POST http://127.0.0.1:8711/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "tts-1",
+    "input": "Hello from local PocketTTS",
+    "voice": "alba",
+    "response_format": "wav"
+  }' \
+  --output /tmp/pockettts-test.wav
+```
+
+PCM test:
+
+```bash
+curl -X POST http://127.0.0.1:8711/v1/audio/speech \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "tts-1",
+    "input": "Hello PCM",
+    "voice": "alba",
+    "response_format": "pcm"
+  }' \
+  --output /tmp/pockettts-test.pcm
+```
+
+---
+
+## Built-in demo UI
+
+Open:
+
+- `http://127.0.0.1:8711/`
+
+It provides a small page to test text, voice name, and output format.
+
+---
+
+## About Hugging Face warning at startup
+
+You may see:
+
+> "You are sending unauthenticated requests to the HF Hub..."
+
+This is from `huggingface_hub`. It does **not always** mean a large download happened at that moment.
+
+- If model/tokenizer/voice artifacts already exist in cache volumes, startup generally reuses them.
+- On a fresh volume, first startup may fetch assets.
+
+This compose setup persists these volumes:
+
+- `/models/huggingface`
+- `/models/.cache`
+- `/models/voices`
+
+So normal restarts should be warm.
+
+---
+
+## Plugin usage (optional for now)
+
+If you still want to use this repo's plugin:
 
 ```bash
 openclaw plugins install .
 openclaw plugins enable pockettts
 ```
 
-## Configure OpenClaw
+Current plugin defaults to OpenAI-style endpoint behavior.
 
-In `~/.openclaw/openclaw.json`:
+Example plugin provider config in `~/.openclaw/openclaw.json`:
 
 ```jsonc
 {
-  "plugins": {
-    "entries": {
-      "pockettts": {
-        "enabled": true
-      }
-    }
-  },
   "messages": {
     "tts": {
       "provider": "pockettts",
@@ -117,9 +208,10 @@ In `~/.openclaw/openclaw.json`:
       "providers": {
         "pockettts": {
           "baseUrl": "http://127.0.0.1:8711",
-          "endpointPath": "/tts",
+          "endpointPath": "/v1/audio/speech",
           "timeoutMs": 180000,
-          "defaultVoice": "alba"
+          "defaultVoice": "alba",
+          "responseFormat": "wav"
         }
       }
     }
@@ -127,40 +219,23 @@ In `~/.openclaw/openclaw.json`:
 }
 ```
 
-> `defaultVoiceUrl` is still accepted for compatibility, but recommended values are voice names: `alba`, `marius`, `javert`, `jean`, `fantine`, `cosette`, `eponine`, `azelma`.
-
-Restart OpenClaw gateway after install/config changes.
-
-## Auto-start on machine restart
-
-- `restart: unless-stopped` is already set in compose.
-- Ensure Docker itself starts on login/boot:
-  - macOS/Windows (Docker Desktop): enable "Start Docker Desktop when you log in"
-  - Linux: `sudo systemctl enable docker`
-
-Then your PocketTTS container will come back automatically after reboot.
+---
 
 ## Security notes
 
-Current docker setup includes:
+Current Docker setup includes:
 
-- non-root container user
-- read-only root filesystem
+- non-root runtime user
+- read-only root filesystem (compose)
 - dropped Linux capabilities (`cap_drop: [ALL]`)
 - `no-new-privileges`
 - loopback binding by default (`127.0.0.1`)
 - health checks
-- `tini` as init process for safe signal handling / child reaping
+- `tini` init process
 
-Extra hardening options you can consider:
-
-- Run behind a local reverse proxy with auth/rate limits if exposing beyond localhost
-- Pin image digests for base image and dependencies in CI
-- Scan image regularly (Trivy/Grype)
+---
 
 ## Troubleshooting
-
-Container status and logs:
 
 ```bash
 cd docker
@@ -168,28 +243,18 @@ docker compose ps
 docker compose logs -f pockettts
 ```
 
-Manual synth test:
+If audio requests fail, verify:
 
-```bash
-curl -X POST http://127.0.0.1:8711/tts \
-  -F 'text=Hello from PocketTTS sidecar' \
-  -F 'voice_url=alba' \
-  --output /tmp/pockettts-test.wav
-```
+- `GET /health` is 200
+- voice exists under `/models/voices` (or fallback `alba` exists)
+- endpoint path is `/v1/audio/speech`
 
-or make it play directly to aplay (on Linux)
-
-```bash
-curl -X POST http://127.0.0.1:8711/tts \
-  -F 'text=Hello from PocketTTS HTTP sidecar' \
-  -F 'voice_url=azelma' \
-  | aplay
-```
+---
 
 ## Acknowledgements
 
-- This plugin uses [Kyutai PocketTTS](https://github.com/kyutai-labs/pocket-tts).
-- Huge thanks to the Kyutai team for releasing PocketTTS.
+- [Kyutai PocketTTS](https://github.com/kyutai-labs/pocket-tts)
+- Thanks to the Kyutai team for open-sourcing PocketTTS.
 
 ## License
 
