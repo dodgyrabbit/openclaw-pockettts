@@ -23,15 +23,11 @@ The image build:
 - preloads model/voice state during build
 - starts the FastAPI server on port `8000`
 
----
-
 ## Build the container
 
 ```bash
 docker build -t pockettts-python:local .
 ```
-
----
 
 ## OpenClaw on Host
 
@@ -52,6 +48,8 @@ Health check:
 You can also test from the built-in web UI:
 
 - http://127.0.0.1:8711/
+
+Alternatively, test it using curl:
 
 ```bash
 curl http://localhost:8711/v1/audio/speech \
@@ -83,8 +81,6 @@ Restart gateway:
 ```bash
 openclaw gateway restart
 ```
-
----
 
 ## OpenClaw in Docker
 
@@ -118,8 +114,6 @@ Restart gateway:
 clawdock-cli gateway restart
 ```
 
----
-
 ## API surface (OpenAI-compatible subset)
 
 - `POST /v1/audio/speech`
@@ -135,8 +129,6 @@ Supported request behavior:
 - `speed`: ignored
 - `stream_format`: ignored
 
----
-
 ## Notes
 
 - Persistent volumes:
@@ -144,19 +136,3 @@ Supported request behavior:
   - `/models/.cache`
   - `/models/voices`
 - You may see a Hugging Face unauthenticated warning at startup; this is usually benign.
-
----
-
-## Troubleshooting
-
-```bash
-docker compose ps
-docker compose logs -f pockettts-python
-```
-
-If needed, verify endpoint directly:
-
-```bash
-curl -fsS http://127.0.0.1:8711/health
-```
-
