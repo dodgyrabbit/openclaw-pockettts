@@ -49,6 +49,10 @@ Health check:
 
 ### Test audio generation
 
+You can also test from the built-in web UI:
+
+- http://127.0.0.1:8711/
+
 ```bash
 curl http://localhost:8711/v1/audio/speech \
   -H "Content-Type: application/json" \
