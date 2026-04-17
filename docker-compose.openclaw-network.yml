@@ -1,0 +1,38 @@
+name: dodgyrabbit
+services:
+  pockettts-python:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pockettts-python:${POCKETTTS_TAG:-local}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    pids_limit: 256
+    volumes:
+      - pockettts_py_hf_cache:/models/huggingface
+      - pockettts_py_xdg_cache:/models/.cache
+      - pockettts_py_voices:/models/voices
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+      start_period: 180s
+    networks:
+      openclaw_net:
+
+networks:
+  openclaw_net:
+    external: true
+    name: ${OPENCLAW_NETWORK:-openclaw_default}
+
+volumes:
+  pockettts_py_hf_cache:
+  pockettts_py_xdg_cache:
+  pockettts_py_voices:

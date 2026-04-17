@@ -1,28 +1,5 @@
-# Node / TypeScript
-node_modules/
-dist/
-build/
-*.tsbuildinfo
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Environment / local config
 .env
 .env.*
-!.env.example
-
-# OS / editor
+*.log
 .DS_Store
-.vscode/
-.idea/
-
-# Test / temp
-coverage/
-.tmp/
-tmp/
-*.tmp
-
-# Docker local artifacts
-docker/.env
+node_modules/
