@@ -15,8 +15,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
-      curl \
-      git \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip \
@@ -29,9 +27,9 @@ RUN pip install --upgrade pip \
 
 WORKDIR /app
 COPY pockettts-server /app/pockettts-server
+COPY voices /models/voices
 
-RUN mkdir -p /models/voices /models/huggingface /models/.cache \
-    && curl -fL "https://huggingface.co/kyutai/tts-voices/resolve/main/alba-mackenna/casual.wav" -o /models/voices/alba.wav
+RUN mkdir -p /models/huggingface /models/.cache
 
 # Download model weights and pre-warm default voice cache at build time.
 RUN PYTHONPATH=/install/lib/python3.12/site-packages:/app/pockettts-server \
@@ -71,7 +69,7 @@ USER pockettts
 
 EXPOSE 8000
 
-VOLUME ["/models/huggingface", "/models/.cache", "/models/voices"]
+VOLUME ["/models/huggingface", "/models/.cache"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=180s --retries=10 \
   CMD curl -fsS http://127.0.0.1:8000/health >/dev/null || exit 1

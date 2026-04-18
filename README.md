@@ -19,7 +19,7 @@ This repository runs the **Python PocketTTS** implementation locally in Docker a
 The image build:
 
 - installs PocketTTS + server runtime dependencies
-- downloads a default voice sample (`alba.wav`)
+- copies the default voice sample from the repo's `voices/` folder (`alba.wav`)
 - preloads model/voice state during build
 - starts the FastAPI server on port `8000`
 
@@ -131,8 +131,9 @@ Supported request behavior:
 
 ## Notes
 
-- Persistent volumes:
-  - `/models/huggingface`
-  - `/models/.cache`
-  - `/models/voices`
+- Persistent storage:
+  - named volume: `/models/huggingface`
+  - named volume: `/models/.cache`
+  - bind mount: `./voices` -> `/models/voices`
+- Add custom voices by placing `*.wav` files in the local `voices/` folder and using the filename (with or without `.wav`) as the `voice` value.
 - You may see a Hugging Face unauthenticated warning at startup; this is usually benign.

@@ -19,7 +19,7 @@ services:
     volumes:
       - pockettts_py_hf_cache:/models/huggingface
       - pockettts_py_xdg_cache:/models/.cache
-      - pockettts_py_voices:/models/voices
+      - ./voices:/models/voices:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
       interval: 30s
@@ -30,4 +30,3 @@ services:
 volumes:
   pockettts_py_hf_cache:
   pockettts_py_xdg_cache:
-  pockettts_py_voices:
